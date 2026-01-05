@@ -1,0 +1,10 @@
+[project]
+name = "plugin-video-wsc"
+version = "0.3.0"
+description = "Add your description here"
+requires-python = ">=3.12"
+dependencies = [
+    "Kodistubs",
+    "requests",
+    "unidecode",
+]

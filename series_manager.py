@@ -146,7 +146,8 @@ class SeriesManager:
                 series_data['seasons'][season_num_str][episode_num_str].append({
                     'name': item['name'],
                     'ident': item['ident'],
-                    'size': item.get('size', '0')
+                    'size': item.get('size', '0'),
+                    'img': item.get('img'),
                 })
 
         # Save the series data
@@ -392,76 +393,105 @@ def create_series_menu(series_manager, handle, has_tmdb_token):
 def create_seasons_menu(series_manager, handle, series_name):
     """Create menu of seasons for a series"""
     import xbmcplugin
-    
+
     series_data = series_manager.load_series_data(series_name)
     if not series_data:
         xbmcgui.Dialog().notification('Webshare Cinema', 'Data serialu nenalezena', xbmcgui.NOTIFICATION_WARNING)
         xbmcplugin.endOfDirectory(handle, succeeded=False)
         return
-    
+
     # List seasons
     for season_num in sorted(series_data['seasons'].keys(), key=int):
         season_name = f"Série {season_num}"
         listitem = xbmcgui.ListItem(label=season_name)
         listitem.setArt({'icon': 'DefaultFolder.png'})
         xbmcplugin.addDirectoryItem(handle, get_url(action='series_season', series_name=series_name, season=season_num), listitem, True)
-    
+
     xbmcplugin.endOfDirectory(handle)
 
+
 def create_episodes_menu(series_manager, handle, series_name, season_num):
-    """Create menu of episodes for a season, handling multiple files per episode, sorted by file type and size"""
     import xbmcplugin, xbmcgui
-    import os  # Na práci s příponami souborů
-    
-    # Definování preferovaných přípon
-    preferred_extensions = ['mkv', 'mp4', 'avi', 'mov']  # Zde si definujete pořadí přípon
-    
+
     # Load series data
     series_data = series_manager.load_series_data(series_name)
     if not series_data or str(season_num) not in series_data['seasons']:
         xbmcgui.Dialog().notification('Webshare Cinema', 'Data sezony nenalezena', xbmcgui.NOTIFICATION_WARNING)
         xbmcplugin.endOfDirectory(handle, succeeded=False)
         return
-    
+
     # Convert season_num to a string for dict lookup if it's not already
     season_num = str(season_num)
-    
+
     # List episodes
     season = series_data['seasons'][season_num]
     for episode_num in sorted(season.keys(), key=int):
         episode_list = season[episode_num]
-        
-        # Seřadíme soubory pro tuto epizodu podle preferované přípony a velikosti
-        # Získáme typ souboru podle přípony a použijeme naše preferované pořadí
-        episode_list_sorted = sorted(episode_list, key=lambda x: (preferred_extensions.index(get_file_type(x['name'])) 
-                                                                  if get_file_type(x['name']) in preferred_extensions else len(preferred_extensions), 
-                                                                  -float(x['size'])))
-        
-        # Nyní přidáme všechny soubory této epizody seřazené podle preferované přípony a velikosti
-        for episode in episode_list_sorted:
-            #episode_size_mb = round(float(episode['size']) / (1024 * 1024), 2)
-            #episode_file_name = f"Epizoda {episode_num} - {episode['name']} [{episode_size_mb} MB]"
-            episode_file_name = f"Epizoda {episode_num} - {episode['name']}"
-            
-            # Vytvoříme položku pro každý soubor epizody
-            file_listitem = xbmcgui.ListItem(label=episode_file_name)
-            file_listitem.setInfo('video', { 'size': int(episode['size'])})
-            file_listitem.setArt({'icon': 'DefaultVideo.png'})
-            file_listitem.setProperty('IsPlayable', 'true')
+        episode_dir_name = f"Epizoda {episode_num}  ({len(episode_list)}x)"
 
-            # URL pro otevření detailu
-            info_url = get_url(action='info', ident=episode['ident'])
+        # Vytvoříme adresarovou položku pro každou epizodu
+        file_listitem = xbmcgui.ListItem(label=episode_dir_name)
+        file_listitem.setArt({'icon': 'DefaultFolder.png'})
+        dir_url = get_url(action='series_episode', series_name=series_name, season_num=season_num, episode_num=episode_num)
+        # Přidání adresare s epizodou
+        xbmcplugin.addDirectoryItem(handle, dir_url, file_listitem, True)
 
-            # Kontextové menu (pravé tlačítko)
-            context_menu = [ ("Informace o souboru", f"RunPlugin({info_url})") ]
+    xbmcplugin.endOfDirectory(handle)
 
-            file_listitem.addContextMenuItems(context_menu)
+def create_episodes_list(series_manager, handle, series_name, season_num, episode_num):
+    """Create menu of episodes for a season, handling multiple files per episode, sorted by file type and size"""
+    import xbmcplugin, xbmcgui
 
-            # Generování URL pro přehrání souboru
-            file_url = get_url(action='play', ident=episode['ident'], name=episode['name'])
+    # Definování preferovaných přípon
+    preferred_extensions = ['mkv', 'mp4', 'avi', 'mov']  # Zde si definujete pořadí přípon
 
-            # Přidání souboru do menu pod epizodou
-            xbmcplugin.addDirectoryItem(handle, file_url, file_listitem, False)
+    # Load series data
+    series_data = series_manager.load_series_data(series_name)
+    if not series_data or str(season_num) not in series_data['seasons']:
+        xbmcgui.Dialog().notification('Webshare Cinema', 'Data sezony nenalezena', xbmcgui.NOTIFICATION_WARNING)
+        xbmcplugin.endOfDirectory(handle, succeeded=False)
+        return
+
+    # Convert season_num to a string for dict lookup if it's not already
+    season_num = str(season_num)
+
+    # List episodes
+    season = series_data['seasons'][season_num]
+    episode_list = season[episode_num]
+
+    # Seřadíme soubory pro tuto epizodu podle preferované přípony a velikosti
+    # Získáme typ souboru podle přípony a použijeme naše preferované pořadí
+    episode_list_sorted = sorted(episode_list, key=lambda x: (preferred_extensions.index(get_file_type(x['name'])) 
+                                                              if get_file_type(x['name']) in preferred_extensions else len(preferred_extensions), 
+                                                              -float(x['size'])))
+
+    # Nyní přidáme všechny soubory této epizody seřazené podle preferované přípony a velikosti
+    for episode in episode_list_sorted:
+        #episode_size_mb = round(float(episode['size']) / (1024 * 1024), 2)
+        #episode_file_name = f"Epizoda {episode_num} - {episode['name']} [{episode_size_mb} MB]"
+        episode_file_name = f"Epizoda {episode_num} - {episode['name']}"
+
+        # Vytvoříme položku pro každý soubor epizody
+        file_listitem = xbmcgui.ListItem(label=episode_file_name)
+        file_listitem.setInfo('video', { 'size': int(episode['size'])})
+        file_listitem.setArt({'icon': 'DefaultVideo.png'})
+        if episode.get("img"):
+            file_listitem.setArt({'poster': episode['img']})
+        file_listitem.setProperty('IsPlayable', 'true')
+
+        # URL pro otevření detailu
+        info_url = get_url(action='info', ident=episode['ident'])
+
+        # Kontextové menu (pravé tlačítko)
+        context_menu = [ ("Informace o souboru", f"RunPlugin({info_url})") ]
+
+        file_listitem.addContextMenuItems(context_menu)
+
+        # Generování URL pro přehrání souboru
+        file_url = get_url(action='play', ident=episode['ident'], name=episode['name'])
+
+        # Přidání souboru do menu pod epizodou
+        xbmcplugin.addDirectoryItem(handle, file_url, file_listitem, False)
 
     xbmcplugin.setContent(handle, 'episodes')  # nebo 'videos'
 

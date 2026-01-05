@@ -678,10 +678,9 @@ def menu():
     xbmcplugin.addDirectoryItem(_handle, get_url(action='history'), listitem, True)
     
     # YAWsP autor movie library
-    if 'true' == _addon.getSetting('experimental'):
-        listitem = xbmcgui.ListItem(label='Backup DB')
-        listitem.setArt({'icon': 'DefaultAddonsZip.png'})
-        xbmcplugin.addDirectoryItem(_handle, get_url(action='db'), listitem, True)
+    listitem = xbmcgui.ListItem(label='Backup DB')
+    listitem.setArt({'icon': 'DefaultAddonsZip.png'})
+    xbmcplugin.addDirectoryItem(_handle, get_url(action='db'), listitem, True)
 
     # Settings
     listitem = xbmcgui.ListItem(label=_addon.getLocalizedString(30204))
@@ -735,7 +734,7 @@ def series_search(params):
     
     # Show progress dialog
     progress = xbmcgui.DialogProgress()
-    progress.create('Webshare Cinema', f'Vyhledavam serial {series_name}...')
+    progress.create('Webshare Cinema', f'Vyhledávám seriál {series_name}...')
     
     try:
         # Search for the series
@@ -743,13 +742,13 @@ def series_search(params):
         
         if not series_data or not series_data['seasons']:
             progress.close()
-            popinfo('Nenalezeny zadne epizody tohoto serialu', icon=xbmcgui.NOTIFICATION_WARNING)
+            popinfo('Nenalezeny žádné epizody tohoto seriálu', icon=xbmcgui.NOTIFICATION_WARNING)
             xbmcplugin.endOfDirectory(_handle, succeeded=False)
             return
         
         # Success
         progress.close()
-        popinfo(f'Nalezeno {sum(len(season) for season in series_data["seasons"].values())} epizod v {len(series_data["seasons"])} sezonach')
+        popinfo(f'Nalezeno {sum(len(season) for season in series_data["seasons"].values())} epizod v {len(series_data["seasons"])} sezónách')
         
         # Redirect to series detail
         xbmc.executebuiltin(f'Container.Update({get_url(action="series_detail", series_name=series_name)})')
@@ -762,7 +761,7 @@ def series_search(params):
 
 def series_detail(params):
     """Show seasons for a series"""
-    xbmcplugin.setPluginCategory(_handle, _addon.getAddonInfo('name') + " \ " + params['series_name'])
+    xbmcplugin.setPluginCategory(_handle, _addon.getAddonInfo('name') + f" \\ {params['series_name']}")
     
     # Initialize SeriesManager
     sm = series_manager.SeriesManager(_addon, _profile)
@@ -775,13 +774,27 @@ def series_season(params):
     series_name = params['series_name']
     season = params['season']
     
-    xbmcplugin.setPluginCategory(_handle, _addon.getAddonInfo('name') + " \ " + series_name + " \ " + f"Rada {season}")
+    xbmcplugin.setPluginCategory(_handle, _addon.getAddonInfo('name') + f" \\ {series_name} \\ Řada {season}")
     
     # Initialize SeriesManager
     sm = series_manager.SeriesManager(_addon, _profile)
     
     # Display episodes menu
     series_manager.create_episodes_menu(sm, _handle, series_name, season)
+
+def series_episode(params):
+    """Show episodes for a season"""
+    series_name = params['series_name']
+    season_num = params['season_num']
+    episode_num = params['episode_num']
+
+    xbmcplugin.setPluginCategory(_handle, _addon.getAddonInfo('name') + f" \\ {series_name} \\ Řada {season_num} \\ Epizoda {episode_num}")
+
+    # Initialize SeriesManager
+    sm = series_manager.SeriesManager(_addon, _profile)
+
+    # Display episodes menu
+    series_manager.create_episodes_list(sm, _handle, series_name, season_num, episode_num)
 
 def series_refresh(params):
     """Refresh series data"""
@@ -793,7 +806,7 @@ def series_refresh(params):
     
     # Show progress dialog
     progress = xbmcgui.DialogProgress()
-    progress.create('Webshare Cinema', f'Aktualizuji data pro serial {series_name}...')
+    progress.create('Webshare Cinema', f'Aktualizuji data pro seriál {series_name}...')
     
     try:
         # Search for the series
@@ -801,13 +814,13 @@ def series_refresh(params):
         
         if not series_data or not series_data['seasons']:
             progress.close()
-            popinfo('Nenalezeny zadne epizody tohoto serialu', icon=xbmcgui.NOTIFICATION_WARNING)
+            popinfo('Nenalezeny žádné epizody tohoto seriálu', icon=xbmcgui.NOTIFICATION_WARNING)
             xbmcplugin.endOfDirectory(_handle, succeeded=False)
             return
         
         # Success
         progress.close()
-        popinfo(f'Aktualizovano: {sum(len(season) for season in series_data["seasons"].values())} epizod v {len(series_data["seasons"])} sezonach')
+        popinfo(f'Aktualizováno: {sum(len(season) for season in series_data["seasons"].values())} epizod v {len(series_data["seasons"])} sezónách')
         
         # Redirect to series detail to refresh the view
         xbmc.executebuiltin(f'Container.Update({get_url(action="series_detail", series_name=series_name)})')
@@ -849,6 +862,8 @@ def router(paramstring):
             series_detail(params)
         elif params['action'] == 'series_season':
             series_season(params)
+        elif params['action'] == 'series_episode':
+            series_episode(params)
         elif params['action'] == 'series_refresh':
             series_refresh(params)
         elif params['action'] == 'series_delete':
